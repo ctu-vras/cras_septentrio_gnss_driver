@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+SPDX-License-Identifier: BSD-3-Clause
+SPDX-FileCopyrightText: Czech Technical University in Prague
+-->
+
+<package format="3">
+  <name>cras_septentrio_gnss_driver</name>
+  <version>1.0.0</version>
+  <description>Improved Septentrio GNSS driver providing more standardized ROS output.</description>
+
+  <maintainer email="peckama2@fel.cvut.cz">Martin Pecka</maintainer>
+  <author>Martin Pecka</author>
+
+  <license>BSD</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <build_depend>compass_msgs</build_depend>
+  <build_depend>cras_cpp_common</build_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>gps_common</build_depend>
+  <build_depend>nmea_msgs</build_depend>
+  <build_depend>pluginlib</build_depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>septentrio_gnss_driver</build_depend>
+  <build_depend>tf2</build_depend>
+  <build_depend>tf2_geometry_msgs</build_depend>
+
+  <exec_depend>compass_msgs</exec_depend>
+  <exec_depend>cras_cpp_common</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>gps_common</exec_depend>
+  <exec_depend>nmea_msgs</exec_depend>
+  <exec_depend>nodelet</exec_depend>
+  <exec_depend>pluginlib</exec_depend>
+  <exec_depend>roscpp</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>septentrio_gnss_driver</exec_depend>
+  <exec_depend>tf2</exec_depend>
+  <exec_depend>tf2_geometry_msgs</exec_depend>
+
+  <test_depend condition="$ROS_PYTHON_VERSION == 2">python-catkin-lint</test_depend>
+  <test_depend condition="$ROS_PYTHON_VERSION == 3">python3-catkin-lint</test_depend>
+  <test_depend>roslaunch</test_depend>
+  <test_depend>roslint</test_depend>
+
+  <export>
+    <nodelet plugin="${prefix}/nodelets.xml" />
+  </export>
+</package>

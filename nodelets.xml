@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+SPDX-License-Identifier: BSD-3-Clause
+SPDX-FileCopyrightText: Czech Technical University in Prague
+-->
+
+<library path="lib/libcras_septentrio_process">
+  <class name="cras_septentrio_gnss_driver/process" type="cras::SeptentrioProcess" base_class_type="nodelet::Nodelet">
+    <description>
+      Improved Septentrio GNSS driver providing more standardized ROS output
+    </description>
+  </class>
+</library>

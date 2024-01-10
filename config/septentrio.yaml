@@ -1,0 +1,65 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-FileCopyrightText: Czech Technical University in Prague
+
+activate_debug_log: false
+ant_aux1_serial_nr: Unknown
+ant_aux1_type: Unknown
+ant_serial_nr: Unknown
+ant_type: Unknown
+aux1_frame_id: dgps_aux_antenna
+configure_rx: true
+datum: Default
+device: serial:/dev/ttyACM1
+frame_id: dgps_main_antenna
+get_spatial_config_from_tf: true
+latency_compensation: false
+leap_seconds: 18
+lock_utm_zone: true
+multi_antenna: true
+polling_period:
+  pvt: 100
+  rest: 100
+publish:
+  aimplusstatus: true
+  attcoveuler: true
+  atteuler: true
+  diagnostics: true
+  extsensormeas: true
+  gpgga: true
+  gpgsa: true
+  gpgsv: true
+  gprmc: true
+  gpsfix: true
+  gpst: true
+  localization: true
+  localization_ecef: true
+  measepoch: true
+  navsatfix: true
+  poscovcartesian: true
+  poscovgeodetic: true
+  pose: true
+  pvtcartesian: true
+  pvtgeodetic: true
+  tf: false
+  tf_ecef: false
+  twist: true
+  velcovcartesian: true
+  velcovgeodetic: true
+receiver_type: gnss
+rtk_settings:
+  ntrip_1:
+    caster: 'http://ntrip.pecny.cz'
+    caster_port: 2101
+    keep_open: true
+    #mountpoint: 'CRAK00CZE0'
+    mountpoint: 'GOP60'
+    rtk_standard: auto
+    send_gga: auto
+    tls: false
+    version: v2
+serial:
+  baudrate: 921600
+  hw_flow_control: 'off'
+  rx_serial_port: USB1
+use_gnss_time: false
+use_ros_axis_orientation: true
