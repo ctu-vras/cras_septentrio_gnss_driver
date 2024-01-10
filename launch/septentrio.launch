@@ -5,7 +5,7 @@ SPDX-FileCopyrightText: Czech Technical University in Prague
 -->
 
 <launch>
-    <arg name="device" default="/dev/ttyACM1" />
+    <arg name="device" default="/dev/septentrio_usb2" />
     <arg name="debug" default="false" />
     <arg name="config" default="$(dirname)/../config/septentrio.yaml" />
     <arg name="nodelet_manager" default="" />

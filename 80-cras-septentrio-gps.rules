@@ -1,0 +1,4 @@
+# Udev rules for use on the robots
+KERNEL=="ttyACM*", ATTRS{idVendor}=="152a", ATTRS{idProduct}=="85c0", ENV{ID_USB_INTERFACE_NUM}=="02", SYMLINK+="septentrio_usb1", ENV{ID_MM_DEVICE_IGNORE}="1", ENV{ID_MM_CANDIDATE}="0"
+KERNEL=="ttyACM*", ATTRS{idVendor}=="152a", ATTRS{idProduct}=="85c0", ENV{ID_USB_INTERFACE_NUM}=="04", SYMLINK+="septentrio_usb2", ENV{ID_MM_DEVICE_IGNORE}="1", ENV{ID_MM_CANDIDATE}="0"
+SUBSYSTEM=="net", ATTRS{idVendor}=="152a", ATTRS{idProduct}=="85c0", NAME="eth_septentrio"

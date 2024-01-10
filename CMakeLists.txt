@@ -34,7 +34,7 @@ install(TARGETS cras_septentrio_process
 )
 
 install(FILES
-  nodelets.xml
+  80-cras-septentrio-gps.rules nodelets.xml
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
 

@@ -9,7 +9,7 @@ ant_type: Unknown
 aux1_frame_id: dgps_aux_antenna
 configure_rx: true
 datum: Default
-device: serial:/dev/ttyACM1
+device: serial:/dev/septentrio_usb2
 frame_id: dgps_main_antenna
 get_spatial_config_from_tf: true
 latency_compensation: false
@@ -60,6 +60,5 @@ rtk_settings:
 serial:
   baudrate: 921600
   hw_flow_control: 'off'
-  rx_serial_port: USB1
 use_gnss_time: false
 use_ros_axis_orientation: true

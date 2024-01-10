@@ -14,6 +14,12 @@ processing nodes) and sensor_msgs/Imu (for robot_localization). The IMU message 
 pitch), but the third angle is always reported as zero. Covariance of the invalid angles is set to (2*pi)^2. Also,
 the angular velocities are added to this IMU message. Accelerations are not used.
 
+## Udev rules
+
+To ensure stable configuration of the unit that doesn't change every boot, install the included udev rule
+`80-cras-septentrio-gps.rules` into `/etc/udev/rules.d` . This rule, however, only supports one unit connected via
+USB at a time, so remember that if you would work with multiple units.
+
 ## Nodelets
 
 ### cras_septentrio_gnss_driver/process
