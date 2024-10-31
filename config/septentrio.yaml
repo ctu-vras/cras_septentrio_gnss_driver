@@ -48,11 +48,11 @@ publish:
 receiver_type: gnss
 rtk_settings:
   ntrip_1:
-    caster: 'http://ntrip.pecny.cz'
-    caster_port: 2101
+    id: NTR1
+    caster: '$(arg ntrip_caster)'
+    caster_port: $(arg ntrip_caster_port)
     keep_open: true
-    #mountpoint: 'CRAK00CZE0'
-    mountpoint: 'GOP60'
+    mountpoint: '$(arg ntrip_mountpoint)'
     rtk_standard: auto
     send_gga: auto
     tls: false

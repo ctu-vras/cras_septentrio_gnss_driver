@@ -9,9 +9,12 @@ SPDX-FileCopyrightText: Czech Technical University in Prague
     <arg name="debug" default="false" />
     <arg name="config" default="$(dirname)/../config/septentrio.yaml" />
     <arg name="nodelet_manager" default="" />
+    <arg name="ntrip_caster" default="http://ntrip.pecny.cz" />
+    <arg name="ntrip_caster_port" default="2101" />
+    <arg name="ntrip_mountpoint" default="GOP60" />
 
     <node name="septentrio" pkg="septentrio_gnss_driver" type="septentrio_gnss_driver_node" ns="gnss/septentrio/raw" respawn="true">
-        <rosparam command="load" file="$(arg config)" />
+        <rosparam command="load" file="$(arg config)" subst_value="true" />
 
         <param name="device" value="serial:$(arg device)" />
         <param name="activate_debug_log" value="$(arg debug)" />
