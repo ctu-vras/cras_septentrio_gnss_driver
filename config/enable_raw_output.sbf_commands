@@ -1,23 +1,14 @@
-# Set tracking all but QZSS (Japan-only) satellites
 sst, all
 sst, -QZSS
-# Set tracking all signals in signal plan #1 (see docs), i.e. all but BDSB3I
 snt, GPSL1CA+GPSL2PY+GPSL2C+GLOL1CA+GLOL2CA+GALL1BC+GALE5b+GEOL1+BDSB1I+BDSB2I+QZSL1CA+QZSL2C+QZSL1CB
-# Wide-band interference mitigation
 swbi, on
-# Elevation mask
 sem, Tracking, 0
 sem, PVT, 10
-# Vehicle dynamics
 srd, Moderate, Unlimited
-# Use all satellites and all signals
 ssu, all
 snu, all, all
-# Smoothing duration
 smrf, sec10
-# Baseband sampling after interference mitigation
 sbbs, AfterIM
-# Set up SBF output on TCP port 2103, output almost everything
 siss, IPS1, 2103, TCP, 255.255.255.255
 sdio, IPS1, none, SBF
 sso, Res1, IPS1, +Measurements +Meas3 +RawNavBits +GPS +GLO +GAL +GEO +BDS +PVTCart +PVTGeod +PVTExtra +Attitude +Time +DiffCorr +Status +ReceiverSetup +RxMessage +BBSamples, OnChange
