@@ -24,7 +24,7 @@ SPDX-FileCopyrightText: Czech Technical University in Prague
   <build_depend>pluginlib</build_depend>
   <build_depend>roscpp</build_depend>
   <build_depend>sensor_msgs</build_depend>
-  <build_depend>septentrio_gnss_driver</build_depend>
+  <build_depend version_gte="1.4.1">septentrio_gnss_driver</build_depend>
   <build_depend>tf2</build_depend>
   <build_depend>tf2_geometry_msgs</build_depend>
 
@@ -37,7 +37,7 @@ SPDX-FileCopyrightText: Czech Technical University in Prague
   <exec_depend>pluginlib</exec_depend>
   <exec_depend>roscpp</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
-  <exec_depend>septentrio_gnss_driver</exec_depend>
+  <exec_depend version_gte="1.4.1">septentrio_gnss_driver</exec_depend>
   <exec_depend>tf2</exec_depend>
   <exec_depend>tf2_geometry_msgs</exec_depend>
 

@@ -14,32 +14,15 @@ SPDX-FileCopyrightText: Czech Technical University in Prague
     <arg name="ntrip_mountpoint" default="GOP60" />
     <arg name="enable_raw_output" default="true" />
 
-    <node name="septentrio" pkg="septentrio_gnss_driver" type="septentrio_gnss_driver_node" ns="gnss/septentrio/raw" respawn="true">
+    <node name="raw" pkg="septentrio_gnss_driver" type="septentrio_gnss_driver_node" ns="gnss/septentrio" respawn="true">
         <rosparam command="load" file="$(arg config)" subst_value="true" />
 
         <param name="device" value="serial:$(arg device)" />
         <param name="activate_debug_log" value="$(arg debug)" />
         <param name="custom_commands_file" value="$(dirname)/../config/enable_raw_output.sbf_commands" if="$(arg enable_raw_output)" />
 
-        <remap from="/aimplusstatus" to="aimplusstatus" />
-        <remap from="/attcoveuler" to="attcoveuler" />
-        <remap from="/atteuler" to="atteuler" />
-        <remap from="/gpgga" to="gpgga" />
-        <remap from="/gpgsa" to="gpgsa" />
-        <remap from="/gprmc" to="gprmc" />
-        <remap from="/gpsfix" to="fix_detail" />
-        <remap from="/gpst" to="gpst" />
-        <remap from="/measepoch" to="measepoch" />
-        <remap from="/navsatfix" to="fix" />
-        <remap from="/poscovcartesian" to="poscovcartesian" />
-        <remap from="/poscovgeodetic" to="poscovgeodetic" />
-        <remap from="/pose" to="pose" />
-        <remap from="/pvtcartesian" to="pvtcartesian" />
-        <remap from="/pvtgeodetic" to="pvtgeodetic" />
-        <remap from="/rfstatus" to="rfstatus" />
-        <remap from="/twist_gnss" to="twist_gnss" />
-        <remap from="/velcovcartesian" to="velcovcartesian" />
-        <remap from="/velcovgeodetic" to="velcovgeodetic" />
+        <remap from="~navsatfix" to="~fix" />
+        <remap from="~gpsfix" to="~fix_detail" />
     </node>
 
     <arg name="nodelet_manager_arg" value="standalone" if="$(eval nodelet_manager == '')" />
