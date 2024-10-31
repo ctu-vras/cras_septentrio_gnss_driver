@@ -1,0 +1,15 @@
+sst, all
+sst, -QZSS
+snt, all
+snt, -BDSB3I
+swbi, on
+sem, Tracking, 0
+sem, PVT, 10
+srd, Medium, Unlimited
+ssu, all
+snu, all, all
+smrf, sec10
+sbbs, AfterIM
+siss, IPS1, 1234, TCP, 255.255.255.255
+sdio, IPS1, none, SBF
+sso, Res1, IPS1, +Measurements +Meas3 +RawNavBits +GPS +GLO +GAL +GEO +BDS +PVTCart +PVTGeod +PVTExtra +Attitude +Time +DiffCorr +Status +ReceiverSetup +RxMessage +BBSamples, OnChange
