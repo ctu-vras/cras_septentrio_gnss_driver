@@ -10,6 +10,6 @@ ssu, all
 snu, all, all
 smrf, sec10
 sbbs, AfterIM
-siss, IPS1, 1234, TCP, 255.255.255.255
+siss, IPS1, 2103, TCP, 255.255.255.255
 sdio, IPS1, none, SBF
 sso, Res1, IPS1, +Measurements +Meas3 +RawNavBits +GPS +GLO +GAL +GEO +BDS +PVTCart +PVTGeod +PVTExtra +Attitude +Time +DiffCorr +Status +ReceiverSetup +RxMessage +BBSamples, OnChange
