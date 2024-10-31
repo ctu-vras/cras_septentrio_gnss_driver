@@ -9,7 +9,7 @@ SPDX-FileCopyrightText: Czech Technical University in Prague
     <arg name="debug" default="false" />
     <arg name="config" default="$(dirname)/../config/septentrio.yaml" />
     <arg name="nodelet_manager" default="" />
-    <arg name="ntrip_caster" default="http://ntrip.pecny.cz" />
+    <arg name="ntrip_caster" default="ntrip.pecny.cz" />
     <arg name="ntrip_caster_port" default="2101" />
     <arg name="ntrip_mountpoint" default="GOP60" />
     <arg name="enable_raw_output" default="true" />
