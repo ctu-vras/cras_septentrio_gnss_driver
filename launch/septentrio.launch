@@ -14,10 +14,13 @@ SPDX-FileCopyrightText: Czech Technical University in Prague
     <arg name="ntrip_mountpoint" default="GOP60" />
     <arg name="enable_raw_output" default="true" />
 
+    <arg name="device_name" value="serial:$(arg device)" unless="$(eval ':' in device)" />
+    <arg name="device_name" value="$(arg device)" if="$(eval ':' in device)" />
+
     <node name="raw" pkg="septentrio_gnss_driver" type="septentrio_gnss_driver_node" ns="gnss/septentrio" respawn="true">
         <rosparam command="load" file="$(arg config)" subst_value="true" />
 
-        <param name="device" value="serial:$(arg device)" />
+        <param name="device" value="serial:$(arg device_name)" />
         <param name="activate_debug_log" value="$(arg debug)" />
         <param name="custom_commands_file" value="$(dirname)/../config/enable_raw_output.sbf_commands" if="$(arg enable_raw_output)" />
 
