@@ -20,7 +20,7 @@ SPDX-FileCopyrightText: Czech Technical University in Prague
     <node name="raw" pkg="septentrio_gnss_driver" type="septentrio_gnss_driver_node" ns="gnss/septentrio" respawn="true">
         <rosparam command="load" file="$(arg config)" subst_value="true" />
 
-        <param name="device" value="serial:$(arg device_name)" />
+        <param name="device" value="$(arg device_name)" />
         <param name="activate_debug_log" value="$(arg debug)" />
         <param name="custom_commands_file" value="$(dirname)/../config/enable_raw_output.sbf_commands" if="$(arg enable_raw_output)" />
 
