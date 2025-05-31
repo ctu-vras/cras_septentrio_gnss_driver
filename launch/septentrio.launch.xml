@@ -28,7 +28,7 @@ SPDX-FileCopyrightText: Czech Technical University in Prague
 
     <node_container pkg="rclcpp_components" exec="component_container_mt" name="$(var component_container)"
                     output="$(var output)" respawn="$(var respawn)" namespace="$(var namespace)">
-        <composable_node name="raw" pkg="septentrio_gnss_driver" plugin="rosaic_node::ROSaicNode" namespace="$(var namespace)">
+        <composable_node name="driver" pkg="septentrio_gnss_driver" plugin="rosaic_node::ROSaicNode" namespace="$(var namespace)/raw">
             <param from="$(var config)" />
             <param name="device" value="$(var device_name)" />
             <param name="activate_debug_log" value="$(var debug)" />
