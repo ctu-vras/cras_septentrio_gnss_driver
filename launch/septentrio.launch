@@ -6,18 +6,31 @@ SPDX-FileCopyrightText: Czech Technical University in Prague
 
 <launch>
     <arg name="device" default="/dev/septentrio_usb2" />
-    <arg name="debug" default="false" />
     <arg name="config" default="$(dirname)/../config/septentrio.yaml" />
-    <arg name="nodelet_manager" default="" />
+    <arg name="enable_raw_output" default="true" />
+
     <arg name="ntrip_caster" default="ntrip.pecny.cz" />
     <arg name="ntrip_caster_port" default="2101" />
     <arg name="ntrip_mountpoint" default="GOP60" />
-    <arg name="enable_raw_output" default="true" />
+
+    <arg name="namespace" default="gnss/septentrio" />
+    <arg name="nodelet_manager" default="" />
+
+    <arg name="min_position_error" default="0.0" />
+    <arg name="min_altitude_error" default="0.0" />
+    <arg name="min_heading_error_deg" default="0.0" />
+    <arg name="publish_invalid_fix" default="true" />
+    <arg name="publish_invalid_heading" default="false" />
+
+    <arg name="debug" default="false" />
+    <arg name="output" default="screen" />
+    <arg name="respawn" default="true" />
 
     <arg name="device_name" value="serial:$(arg device)" unless="$(eval ':' in device)" />
     <arg name="device_name" value="$(arg device)" if="$(eval ':' in device)" />
 
-    <node name="raw" pkg="septentrio_gnss_driver" type="septentrio_gnss_driver_node" ns="gnss/septentrio" respawn="true">
+    <node name="raw" pkg="septentrio_gnss_driver" type="septentrio_gnss_driver_node" ns="$(arg namespace)"
+          respawn="$(arg respawn)" output="$(arg output)">
         <rosparam command="load" file="$(arg config)" subst_value="true" />
 
         <param name="device" value="$(arg device_name)" />
@@ -34,5 +47,12 @@ SPDX-FileCopyrightText: Czech Technical University in Prague
     <arg name="nodelet_manager_name" value="$(arg nodelet_manager)" if="$(eval nodelet_manager != '')" />
     <node name="septentrio_process" pkg="nodelet" type="nodelet"
           args="$(arg nodelet_manager_arg) cras_septentrio_gnss_driver/process $(arg nodelet_manager_name)"
-          ns="gnss/septentrio" respawn="true" />
+          ns="$(arg namespace)" respawn="$(arg respawn)" output="$(arg output)">
+
+        <param name="min_position_error" value="$(arg min_position_error)" />
+        <param name="min_altitude_error" value="$(arg min_altitude_error)" />
+        <param name="min_heading_error_deg" value="$(arg min_heading_error_deg)" />
+        <param name="publish_invalid_fix" value="$(arg publish_invalid_fix)" />
+        <param name="publish_invalid_heading" value="$(arg publish_invalid_heading)" />
+    </node>
 </launch>

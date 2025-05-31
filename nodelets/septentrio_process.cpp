@@ -183,6 +183,11 @@ struct SeptentrioProcess :
     this->validHeadingErrorThresholdDeg = params->getParam(
       "valid_heading_error_threshold_deg", this->validHeadingErrorThresholdDeg, "deg");
 
+    // These thresholds tell the minimum covariance that will be present in valid fix, fix_detail and heading messages.
+    this->minPosErr = params->getParam("min_position_error", this->minPosErr, "m");
+    this->minAltErr = params->getParam("min_altitude_error", this->minAltErr, "m");
+    this->minHeadingErrDeg = params->getParam("min_heading_error_deg", this->minHeadingErrDeg, "deg");
+
     this->publishInvalidFix = params->getParam("publish_invalid_fix", this->publishInvalidFix);
     this->publishInvalidHeading = params->getParam("publish_invalid_heading", this->publishInvalidHeading);
 
@@ -287,23 +292,24 @@ struct SeptentrioProcess :
   }
 
   template<typename T>
-  bool fixCov(T& val, const T& maxCov) const
+  bool fixCov(T& val, const T& maxCov, const T& minCov = {}) const
   {
     if (std::isnan(val) || val < -1000000000.0)
       val = maxCov;
+    val = std::max(minCov, val);
     return val >= maxCov;
   }
 
   template<typename T>
-  bool fixLinCov(T& val, const T& maxVal) const
+  bool fixLinCov(T& val, const T& maxVal, const T& minVal = {}) const
   {
-    return fixCov(val, maxVal * maxVal);
+    return fixCov(val, maxVal * maxVal, minVal * minVal);
   }
 
   template<typename T>
-  bool fixAngCov(T& val) const
+  bool fixAngCov(T& val, const T& minCov = {}) const
   {
-    return fixCov(val, static_cast<T>(maxAngCov));
+    return fixCov(val, static_cast<T>(maxAngCov), minCov);
   }
 
   template<typename T>
@@ -315,15 +321,15 @@ struct SeptentrioProcess :
   {
     // lat, lon, alt covariance is in meters even for geodetic coordinates
     bool invalid {false};
-    invalid |= fixCov(val[0], static_cast<T>(maxPosErr * maxPosErr));
-    invalid |= fixCov(val[1], static_cast<T>(maxPosErr * maxPosErr));
-    invalid |= fixCov(val[2], static_cast<T>(maxPosErr * maxAltErr));
-    invalid |= fixCov(val[3], static_cast<T>(maxPosErr * maxPosErr));
-    invalid |= fixCov(val[4], static_cast<T>(maxPosErr * maxPosErr));
-    invalid |= fixCov(val[5], static_cast<T>(maxPosErr * maxAltErr));
-    invalid |= fixCov(val[6], static_cast<T>(maxPosErr * maxAltErr));
-    invalid |= fixCov(val[7], static_cast<T>(maxPosErr * maxAltErr));
-    invalid |= fixCov(val[8], static_cast<T>(maxAltErr * maxAltErr));
+    invalid |= fixCov(val[0], static_cast<T>(maxPosErr * maxPosErr), static_cast<T>(minPosErr * minPosErr));
+    invalid |= fixCov(val[1], static_cast<T>(maxPosErr * maxPosErr), static_cast<T>(minPosErr * minPosErr));
+    invalid |= fixCov(val[2], static_cast<T>(maxPosErr * maxAltErr), static_cast<T>(minPosErr * minAltErr));
+    invalid |= fixCov(val[3], static_cast<T>(maxPosErr * maxPosErr), static_cast<T>(minPosErr * minPosErr));
+    invalid |= fixCov(val[4], static_cast<T>(maxPosErr * maxPosErr), static_cast<T>(minPosErr * minPosErr));
+    invalid |= fixCov(val[5], static_cast<T>(maxPosErr * maxAltErr), static_cast<T>(minPosErr * minAltErr));
+    invalid |= fixCov(val[6], static_cast<T>(maxPosErr * maxAltErr), static_cast<T>(minPosErr * minAltErr));
+    invalid |= fixCov(val[7], static_cast<T>(maxPosErr * maxAltErr), static_cast<T>(minPosErr * minAltErr));
+    invalid |= fixCov(val[8], static_cast<T>(maxAltErr * maxAltErr), static_cast<T>(minAltErr * minAltErr));
     return invalid;
   }
 
@@ -373,12 +379,12 @@ struct SeptentrioProcess :
     fixNan(outAtt.pitch_dot);
 
     auto outCov = *cov;
-    invalid |= fixAngCov(outCov.cov_headhead);
-    fixAngCov(outCov.cov_headroll);
-    fixAngCov(outCov.cov_headpitch);
-    fixAngCov(outCov.cov_pitchpitch);
-    fixAngCov(outCov.cov_pitchroll);
-    fixAngCov(outCov.cov_rollroll);
+    invalid |= fixAngCov(outCov.cov_headhead, powf(static_cast<float>(minHeadingErrDeg), 2.0f));
+    fixAngCov(outCov.cov_headroll, powf(static_cast<float>(minHeadingErrDeg), 2.0f));
+    fixAngCov(outCov.cov_headpitch, powf(static_cast<float>(minHeadingErrDeg), 2.0f));
+    fixAngCov(outCov.cov_pitchpitch, powf(static_cast<float>(minHeadingErrDeg), 2.0f));
+    fixAngCov(outCov.cov_pitchroll, powf(static_cast<float>(minHeadingErrDeg), 2.0f));
+    fixAngCov(outCov.cov_rollroll, powf(static_cast<float>(minHeadingErrDeg), 2.0f));
 
     invalid |= (outCov.cov_headhead > validHeadingErrorThresholdDeg * validHeadingErrorThresholdDeg);
 
@@ -478,9 +484,9 @@ struct SeptentrioProcess :
     fixNan(outMsg.hdop);
     fixNan(outMsg.vdop);
     fixNan(outMsg.tdop);
-    invalid |= fixLinCov(outMsg.err, maxPosErr);
-    invalid |= fixLinCov(outMsg.err_horz, maxPosErr);
-    invalid |= fixLinCov(outMsg.err_vert, maxAltErr);
+    invalid |= fixLinCov(outMsg.err, maxPosErr, minPosErr);
+    invalid |= fixLinCov(outMsg.err_horz, maxPosErr, minPosErr);
+    invalid |= fixLinCov(outMsg.err_vert, maxAltErr, minAltErr);
     fixLinCov(outMsg.err_track, 10.0);
     fixLinCov(outMsg.err_speed, 10.0);
     fixLinCov(outMsg.err_climb, 10.0);
@@ -538,12 +544,12 @@ struct SeptentrioProcess :
 #else
     const auto MAX_BIAS_ERR = this->now().seconds();
 #endif
-    fixCov(outMsg.cov_latlat, static_cast<float>(maxPosErr * maxPosErr));
+    fixCov(outMsg.cov_latlat, static_cast<float>(maxPosErr * maxPosErr), static_cast<float>(minPosErr * minPosErr));
     fixCov(outMsg.cov_bb, static_cast<float>(MAX_BIAS_ERR * MAX_BIAS_ERR));
-    fixCov(outMsg.cov_latlon, static_cast<float>(maxPosErr * maxPosErr));
-    fixCov(outMsg.cov_lathgt, static_cast<float>(maxPosErr * maxAltErr));
+    fixCov(outMsg.cov_latlon, static_cast<float>(maxPosErr * maxPosErr), static_cast<float>(minPosErr * minPosErr));
+    fixCov(outMsg.cov_lathgt, static_cast<float>(maxPosErr * maxAltErr), static_cast<float>(minPosErr * minAltErr));
     fixCov(outMsg.cov_latb, static_cast<float>(maxPosErr * MAX_BIAS_ERR));
-    fixCov(outMsg.cov_lonhgt, static_cast<float>(maxPosErr * maxAltErr));
+    fixCov(outMsg.cov_lonhgt, static_cast<float>(maxPosErr * maxAltErr), static_cast<float>(minPosErr * minAltErr));
     fixCov(outMsg.cov_lonb, static_cast<float>(maxPosErr * MAX_BIAS_ERR));
     fixCov(outMsg.cov_hb, static_cast<float>(maxAltErr * MAX_BIAS_ERR));
 
@@ -660,6 +666,10 @@ struct SeptentrioProcess :
 
   double validPosErrorThreshold {0.15};  //!< Position measurements with larger error (in meters) will be discarded.
   double validHeadingErrorThresholdDeg {5.0};  //!< Heading measurements with larger error will be discarded.
+
+  double minPosErr {0.0};  //!< Minimum error assigned to XY part of fix and fix_detail messages.
+  double minAltErr {0.0};  //!< Minimum error assigned to Z part of fix and fix_detail messages.
+  double minHeadingErrDeg {0.0};  //!< Minimum error assigned to heading messages (in degrees).
 
   bool publishInvalidFix {true};  //!< Whether to publish invalid fix messages (with NO_FIX status or NaNs).
   bool publishInvalidHeading {false};  //!< Whether to publish invalid heading messages (with NaNs or high covariance).

@@ -48,6 +48,10 @@ The fixed topics in the empty namespace, e.g. `atteuler`. In addition to them, t
 - `~max_horizontal_velocity_error` (double, default 10 m/s): Maximum error in horizontal velocity used instead of DO-NOT-USE values.
 - `~max_vertical_velocity_error` (double, default 10 m/s): Maximum error in vertical velocity used instead of DO-NOT-USE values.
 - `~max_clock_bias_error` (double, default 10 m/s): Maximum error in clock bias converted to velocity error used instead of DO-NOT-USE values.
+- `~valid_position_error_threshold` (double, default 0.15 m): Position measurements with larger error will be discarded.
 - `~valid_heading_error_threshold_deg` (double, default 5 deg): Heading measurements with larger error will be discarded.
+- `~min_position_error` (double, default 0 m): Minimum error of horizontal position. Lower errors will be reported as this value.
+- `~min_altitude_error` (double, default 0 m): Minimum error of vertical position. Lower errors will be reported as this value.
+- `~min_heading_error_deg` (double, default 0 deg): Minimum error of heading. Lower errors will be reported as this value.
 - `~publish_invalid_fix` (bool, default true): If true, even invalid fix messages will be published. The reader must check the `status.status` field for `NO_FIX` value to figure out validity of the message.
 - `~publish_invalid_heading` (bool, default false): Whether to publish invalid heading messages (with NaNs or high covariance).
