@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+SPDX-License-Identifier: BSD-3-Clause
+SPDX-FileCopyrightText: Czech Technical University in Prague
+-->
+
+<launch>
+    <arg name="device" default="/dev/septentrio_usb2" />
+    <arg name="debug" default="false" />
+    <arg name="output" default="screen" />
+    <arg name="respawn" default="true" />
+    <arg name="config" default="$(find-pkg-share cras_septentrio_gnss_driver)/config/septentrio_ros2.yaml" />
+    <arg name="component_container" default="septentrio_container" />
+    <arg name="namespace" default="" />
+    <arg name="ntrip_caster" default="ntrip.pecny.cz" />
+    <arg name="ntrip_caster_port" default="2101" />
+    <arg name="ntrip_mountpoint" default="GOP60" />
+    <arg name="enable_raw_output" default="true" />
+
+    <let name="device_name" value="serial:$(var device)" unless="$(eval '\':\' in \'$(var device)\'')" />
+    <let name="device_name" value="$(var device)" if="$(eval '\':\' in \'$(var device)\'')" />
+
+    <let name="custom_commands"
+         value="$(find-pkg-share cras_septentrio_gnss_driver)/config/enable_raw_output.sbf_commands"
+         if="$(var enable_raw_output)"/>
+    <let name="custom_commands" value=""
+         unless="$(var enable_raw_output)"/>
+
+    <node_container pkg="rclcpp_components" exec="component_container_mt" name="$(var component_container)"
+                    output="$(var output)" respawn="$(var respawn)" namespace="$(var namespace)">
+        <composable_node name="raw" pkg="septentrio_gnss_driver" plugin="rosaic_node::ROSaicNode" namespace="$(var namespace)">
+            <param from="$(var config)" />
+            <param name="device" value="$(var device_name)" />
+            <param name="activate_debug_log" value="$(var debug)" />
+            <param name="custom_commands_file" value="$(var custom_commands)" />
+
+            <param name="rtk_settings.ntrip_1.caster" value="$(var ntrip_caster)" />
+            <param name="rtk_settings.ntrip_1.caster_port" value="$(var ntrip_caster_port)" />
+            <param name="rtk_settings.ntrip_1.mountpoint" value="$(var ntrip_mountpoint)" />
+
+            <remap from="navsatfix" to="fix" />
+            <remap from="gpsfix" to="fix_detail" />
+        </composable_node>
+
+        <composable_node name="septentrio_process" pkg="cras_septentrio_gnss_driver" plugin="cras::SeptentrioProcess" namespace="$(var namespace)" />
+    </node_container>
+</launch>

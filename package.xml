@@ -14,39 +14,59 @@ SPDX-FileCopyrightText: Czech Technical University in Prague
 
   <license>BSD</license>
 
-  <buildtool_depend>catkin</buildtool_depend>
+  <buildtool_depend condition="$ROS_VERSION == 1">catkin</buildtool_depend>
+  <buildtool_depend condition="$ROS_VERSION == 2">ament_cmake</buildtool_depend>
 
-  <build_depend>compass_msgs</build_depend>
-  <build_depend>cras_cpp_common</build_depend>
+  <build_depend condition="$ROS_VERSION == 1">compass_msgs</build_depend>
+  <build_depend condition="$ROS_VERSION == 1">cras_cpp_common</build_depend>
+  <build_depend condition="$ROS_VERSION == 1">gps_common</build_depend>
+  <build_depend condition="$ROS_VERSION == 1">pluginlib</build_depend>
+  <build_depend condition="$ROS_VERSION == 1">roscpp</build_depend>
+
+  <build_depend condition="$ROS_VERSION == 2">ament_cmake_ros</build_depend>
+  <build_depend condition="$ROS_VERSION == 2">compass_interfaces</build_depend>
+  <build_depend condition="$ROS_VERSION == 2">gps_msgs</build_depend>
+  <build_depend condition="$ROS_VERSION == 2">rclcpp</build_depend>
+  <build_depend condition="$ROS_VERSION == 2">rclcpp_components</build_depend>
+
   <build_depend>geometry_msgs</build_depend>
-  <build_depend>gps_common</build_depend>
   <build_depend>nmea_msgs</build_depend>
-  <build_depend>pluginlib</build_depend>
-  <build_depend>roscpp</build_depend>
   <build_depend>sensor_msgs</build_depend>
   <build_depend version_gte="1.4.1">septentrio_gnss_driver</build_depend>
   <build_depend>tf2</build_depend>
   <build_depend>tf2_geometry_msgs</build_depend>
 
-  <exec_depend>compass_msgs</exec_depend>
-  <exec_depend>cras_cpp_common</exec_depend>
+  <exec_depend condition="$ROS_VERSION == 1">compass_msgs</exec_depend>
+  <exec_depend condition="$ROS_VERSION == 1">cras_cpp_common</exec_depend>
+  <exec_depend condition="$ROS_VERSION == 1">gps_common</exec_depend>
+  <exec_depend condition="$ROS_VERSION == 1">nodelet</exec_depend>
+  <exec_depend condition="$ROS_VERSION == 1">pluginlib</exec_depend>
+  <exec_depend condition="$ROS_VERSION == 1">roscpp</exec_depend>
+
+  <exec_depend condition="$ROS_VERSION == 2">compass_interfaces</exec_depend>
+  <exec_depend condition="$ROS_VERSION == 2">ament_cmake_ros</exec_depend>
+  <exec_depend condition="$ROS_VERSION == 2">gps_msgs</exec_depend>
+  <exec_depend condition="$ROS_VERSION == 2">rclcpp</exec_depend>
+  <exec_depend condition="$ROS_VERSION == 2">rclcpp_components</exec_depend>
+
   <exec_depend>geometry_msgs</exec_depend>
-  <exec_depend>gps_common</exec_depend>
   <exec_depend>nmea_msgs</exec_depend>
-  <exec_depend>nodelet</exec_depend>
-  <exec_depend>pluginlib</exec_depend>
-  <exec_depend>roscpp</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
   <exec_depend version_gte="1.4.1">septentrio_gnss_driver</exec_depend>
   <exec_depend>tf2</exec_depend>
   <exec_depend>tf2_geometry_msgs</exec_depend>
 
-  <test_depend condition="$ROS_PYTHON_VERSION == 2">python-catkin-lint</test_depend>
-  <test_depend condition="$ROS_PYTHON_VERSION == 3">python3-catkin-lint</test_depend>
-  <test_depend>roslaunch</test_depend>
-  <test_depend>roslint</test_depend>
+  <test_depend condition="$ROS_PYTHON_VERSION == 2 and $ROS_VERSION == 1">python-catkin-lint</test_depend>
+  <test_depend condition="$ROS_PYTHON_VERSION == 3 and $ROS_VERSION == 1">python3-catkin-lint</test_depend>
+  <test_depend condition="$ROS_VERSION == 1">roslaunch</test_depend>
+  <test_depend condition="$ROS_VERSION == 1">roslint</test_depend>
+
+  <test_depend condition="$ROS_VERSION == 2">ament_lint_auto</test_depend>
+  <test_depend condition="$ROS_VERSION == 2">ament_lint_common</test_depend>
 
   <export>
-    <nodelet plugin="${prefix}/nodelets.xml" />
+    <nodelet plugin="${prefix}/nodelets.xml" condition="$ROS_VERSION == 1" />
+    <build_type condition="$ROS_VERSION == 1">catkin</build_type>
+    <build_type condition="$ROS_VERSION == 2">ament_cmake</build_type>
   </export>
 </package>

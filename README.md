@@ -5,6 +5,9 @@ SPDX-FileCopyrightText: Czech Technical University in Prague
 
 # cras_septentrio_gnss_driver
 
+![ROS 1 compatible](https://img.shields.io/badge/ROS-1-blue)
+![ROS 2 compatible](https://img.shields.io/badge/ROS-2-blue)
+
 The septentrio_gnss_driver publishes various DO-NOT-USE values in its output, which are usually -2*10^10.
 Such values are unsuitable for downstream ROS processing. This node filters these values out and replaces them with
 more suitable values, or throws away whole messages if they would be invalid from the ROS point of view.
@@ -20,7 +23,7 @@ To ensure stable configuration of the unit that doesn't change every boot, insta
 `80-cras-septentrio-gps.rules` into `/etc/udev/rules.d` . This rule, however, only supports one unit connected via
 USB at a time, so remember that if you would work with multiple units.
 
-## Nodelets
+## ROS 1 Nodelets / ROS 2 Components
 
 ### cras_septentrio_gnss_driver/process
 

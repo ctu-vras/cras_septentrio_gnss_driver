@@ -13,9 +13,13 @@
  * the angular velocities are added to this IMU message. Accelerations are not used.
  */
 
+#include <functional>
 #include <limits>
 #include <memory>
 #include <string>
+#include <utility>
+
+#ifndef ROS2
 
 #include <compass_msgs/Azimuth.h>
 #include <cras_cpp_common/nodelet_utils.hpp>
@@ -41,17 +45,128 @@
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
+#else
+
+#include <compass_interfaces/msg/azimuth.hpp>
+#include <geometry_msgs/msg/point_stamped.hpp>
+#include <geometry_msgs/msg/quaternion.hpp>
+#include <gps_msgs/msg/gps_fix.hpp>
+#include <nmea_msgs/msg/gpgga.hpp>
+#include <nmea_msgs/msg/gprmc.hpp>
+#include <rclcpp_components/register_node_macro.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/imu.hpp>
+#include <sensor_msgs/msg/nav_sat_fix.hpp>
+#include <sensor_msgs/msg/time_reference.hpp>
+#include <septentrio_gnss_driver/msg/aim_plus_status.hpp>
+#include <septentrio_gnss_driver/msg/att_euler.hpp>
+#include <septentrio_gnss_driver/msg/att_cov_euler.hpp>
+#include <septentrio_gnss_driver/msg/pos_cov_geodetic.hpp>
+#include <septentrio_gnss_driver/msg/pvt_geodetic.hpp>
+#include <septentrio_gnss_driver/msg/rf_status.hpp>
+#include <septentrio_gnss_driver/msg/vel_cov_geodetic.hpp>
+#include <tf2/convert.h>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+
+#endif
+
+#ifndef ROS2
+using compass_msgs::Azimuth;
+using gps_common::GPSFix;
+using nmea_msgs::Gpgga;
+using nmea_msgs::Gprmc;
+using sensor_msgs::Imu;
+using sensor_msgs::NavSatFix;
+using sensor_msgs::NavSatStatus;
+using sensor_msgs::TimeReference;
+using septentrio_gnss_driver::AIMPlusStatus;
+using septentrio_gnss_driver::AttCovEulerConstPtr;
+using septentrio_gnss_driver::AttCovEuler;
+using septentrio_gnss_driver::AttEulerConstPtr;
+using septentrio_gnss_driver::AttEuler;
+using septentrio_gnss_driver::PosCovGeodetic;
+using septentrio_gnss_driver::PVTGeodetic;
+using septentrio_gnss_driver::RFStatus;
+using septentrio_gnss_driver::VelCovGeodetic;
+
+#define UPDATE_THREAD_NAME this->updateThreadName();
+
+template<typename T> using Publisher = ros::Publisher;
+template<typename T> using Subscriber = ros::Subscriber;
+
+#else
+
+using compass_interfaces::msg::Azimuth;
+using gps_msgs::msg::GPSFix;
+using nmea_msgs::msg::Gpgga;
+using nmea_msgs::msg::Gprmc;
+using sensor_msgs::msg::Imu;
+using sensor_msgs::msg::NavSatFix;
+using sensor_msgs::msg::NavSatStatus;
+using sensor_msgs::msg::TimeReference;
+using septentrio_gnss_driver::msg::AIMPlusStatus;
+using septentrio_gnss_driver::msg::AttCovEuler;
+using AttCovEulerConstPtr = AttCovEuler::ConstSharedPtr;
+using septentrio_gnss_driver::msg::AttEuler;
+using AttEulerConstPtr = AttEuler::ConstSharedPtr;
+using septentrio_gnss_driver::msg::PosCovGeodetic;
+using septentrio_gnss_driver::msg::PVTGeodetic;
+using septentrio_gnss_driver::msg::RFStatus;
+using septentrio_gnss_driver::msg::VelCovGeodetic;
+
+#define UPDATE_THREAD_NAME
+
+template<typename T> struct Publisher : rclcpp::Publisher<T>::SharedPtr
+{
+  Publisher() : rclcpp::Publisher<T>::SharedPtr(nullptr) {}
+  Publisher(const Publisher& other) :
+    rclcpp::Publisher<T>::SharedPtr(static_cast<const rclcpp::Publisher<T>::SharedPtr&>(other)) {}
+  Publisher(Publisher&& other) noexcept :
+    rclcpp::Publisher<T>::SharedPtr(static_cast<rclcpp::Publisher<T>::SharedPtr&&>(other)) {}
+  Publisher& operator=(const Publisher& shared)
+  {
+    if (this != &shared)
+      static_cast<rclcpp::Publisher<T>::SharedPtr&>(*this) =
+        static_cast<const rclcpp::Publisher<T>::SharedPtr&>(shared);
+    return *this;
+  }
+  Publisher& operator=(Publisher&& shared) noexcept
+  {
+    if (this != &shared)
+      static_cast<rclcpp::Publisher<T>::SharedPtr&>(*this) = static_cast<rclcpp::Publisher<T>::SharedPtr&&>(shared);
+    return *this;
+  }
+
+  Publisher(const rclcpp::Publisher<T>::SharedPtr& other) : rclcpp::Publisher<T>::SharedPtr(other) {}  // NOLINT
+  template<typename M> void publish(const M& val) const { this->get()->publish(std::move(val)); }
+};
+
+template<typename T> using Subscriber = typename rclcpp::Subscription<T>::SharedPtr;
+
+#endif
+
 namespace cras
 {
-struct SeptentrioProcess : public cras::Nodelet
+struct SeptentrioProcess :
+#ifndef ROS2
+  public cras::Nodelet
+#else
+  public rclcpp::Node
+#endif
 {
+#ifndef ROS2
   void onInit() override
   {
     this->nh = this->getNodeHandle();
     this->pnh = this->getPrivateNodeHandle();
 
     auto params = this->privateParams();
-
+#else
+  explicit SeptentrioProcess(const rclcpp::NodeOptions& options) : Node("cras_septentrio_process", options)
+  {
+    auto* params = this;
+#endif
     // These maximum errors are used instead of do-not-use values or too large errors.
     this->maxPosErr = params->getParam("max_position_error", this->maxPosErr, "m");
     this->maxAltErr = params->getParam("max_altitude_error", this->maxAltErr, "m");
@@ -71,48 +186,97 @@ struct SeptentrioProcess : public cras::Nodelet
     this->publishInvalidFix = params->getParam("publish_invalid_fix", this->publishInvalidFix);
     this->publishInvalidHeading = params->getParam("publish_invalid_heading", this->publishInvalidHeading);
 
-    this->aimPlusStatusPub = this->nh.advertise<septentrio_gnss_driver::AIMPlusStatus>("aimplusstatus", 10);
-    this->aimPlusStatusSub = this->nh.subscribe(
+    this->aimPlusStatusPub = this->advertise<AIMPlusStatus>("aimplusstatus", 10);
+    this->aimPlusStatusSub = this->subscribe<AIMPlusStatus>(
       "raw/aimplusstatus", 10, &SeptentrioProcess::processAimPlusStatus, this);
 
-    this->attEulerPub = this->nh.advertise<septentrio_gnss_driver::AttEuler>("atteuler", 10);
-    this->attEulerSub = this->nh.subscribe("raw/atteuler", 10, &SeptentrioProcess::processAtt, this);
+    this->attEulerPub = this->advertise<AttEuler>("atteuler", 10);
+    this->attEulerSub = this->subscribe<AttEuler>("raw/atteuler", 10, &SeptentrioProcess::processAtt, this);
 
-    this->attCovEulerPub = this->nh.advertise<septentrio_gnss_driver::AttCovEuler>("attcoveuler", 10);
-    this->attCovEulerSub = this->nh.subscribe("raw/attcoveuler", 10, &SeptentrioProcess::processAttCov, this);
+    this->attCovEulerPub = this->advertise<AttCovEuler>("attcoveuler", 10);
+    this->attCovEulerSub = this->subscribe<AttCovEuler>("raw/attcoveuler", 10, &SeptentrioProcess::processAttCov, this);
 
-    this->fixPub = this->nh.advertise<sensor_msgs::NavSatFix>("fix", 10);
-    this->fixSub = this->nh.subscribe("raw/fix", 10, &SeptentrioProcess::processFix, this);
+    this->fixPub = this->advertise<NavSatFix>("fix", 10);
+    this->fixSub = this->subscribe<NavSatFix>("raw/fix", 10, &SeptentrioProcess::processFix, this);
 
-    this->fixDetailPub = this->nh.advertise<gps_common::GPSFix>("fix_detail", 10);
-    this->fixDetailSub = this->nh.subscribe("raw/fix_detail", 10, &SeptentrioProcess::processFixDetail, this);
+    this->fixDetailPub = this->advertise<GPSFix>("fix_detail", 10);
+    this->fixDetailSub = this->subscribe<GPSFix>("raw/fix_detail", 10, &SeptentrioProcess::processFixDetail, this);
 
-    this->gpggaPub = this->nh.advertise<nmea_msgs::Gpgga>("gpgga", 10);
-    this->gpggaSub = this->nh.subscribe("raw/gpgga", 10, &SeptentrioProcess::processGpgga, this);
+    this->gpggaPub = this->advertise<Gpgga>("gpgga", 10);
+    this->gpggaSub = this->subscribe<Gpgga>("raw/gpgga", 10, &SeptentrioProcess::processGpgga, this);
 
-    this->gprmcPub = this->nh.advertise<nmea_msgs::Gprmc>("gprmc", 10);
-    this->gprmcSub = this->nh.subscribe("raw/gprmc", 10, &SeptentrioProcess::processGprmc, this);
+    this->gprmcPub = this->advertise<Gprmc>("gprmc", 10);
+    this->gprmcSub = this->subscribe<Gprmc>("raw/gprmc", 10, &SeptentrioProcess::processGprmc, this);
 
-    this->gpstPub = this->nh.advertise<sensor_msgs::TimeReference>("gpst", 10);
-    this->gpstSub = this->nh.subscribe("raw/gpst", 10, &SeptentrioProcess::processGpst, this);
+    this->gpstPub = this->advertise<TimeReference>("gpst", 10);
+    this->gpstSub = this->subscribe<TimeReference>("raw/gpst", 10, &SeptentrioProcess::processGpst, this);
 
-    this->posCovGeodeticPub = this->nh.advertise<septentrio_gnss_driver::PosCovGeodetic>("poscovgeodetic", 10);
-    this->posCovGeodeticSub = this->nh.subscribe(
+    this->posCovGeodeticPub = this->advertise<PosCovGeodetic>("poscovgeodetic", 10);
+    this->posCovGeodeticSub = this->subscribe<PosCovGeodetic>(
       "raw/poscovgeodetic", 10, &SeptentrioProcess::processPosCovGeodetic, this);
 
-    this->pvtGeodeticPub = this->nh.advertise<septentrio_gnss_driver::PVTGeodetic>("pvtgeodetic", 10);
-    this->pvtGeodeticSub = this->nh.subscribe("raw/pvtgeodetic", 10, &SeptentrioProcess::processPVTGeodetic, this);
+    this->pvtGeodeticPub = this->advertise<PVTGeodetic>("pvtgeodetic", 10);
+    this->pvtGeodeticSub = this->subscribe<PVTGeodetic>(
+      "raw/pvtgeodetic", 10, &SeptentrioProcess::processPVTGeodetic, this);
 
-    this->rfStatusPub = this->nh.advertise<septentrio_gnss_driver::RFStatus>("rfstatus", 10);
-    this->rfStatusSub = this->nh.subscribe("raw/rfstatus", 10, &SeptentrioProcess::processRFStatus, this);
+    this->rfStatusPub = this->advertise<RFStatus>("rfstatus", 10);
+    this->rfStatusSub = this->subscribe<RFStatus>("raw/rfstatus", 10, &SeptentrioProcess::processRFStatus, this);
 
-    this->velCovGeodeticPub = this->nh.advertise<septentrio_gnss_driver::VelCovGeodetic>("velcovgeodetic", 10);
-    this->velCovGeodeticSub = this->nh.subscribe(
+    this->velCovGeodeticPub = this->advertise<VelCovGeodetic>("velcovgeodetic", 10);
+    this->velCovGeodeticSub = this->subscribe<VelCovGeodetic>(
       "raw/velcovgeodetic", 10, &SeptentrioProcess::processVelCovGeodetic, this);
 
-    this->azimuthPub = this->nh.advertise<compass_msgs::Azimuth>("azimuth", 10);
-    this->imuPub = this->nh.advertise<sensor_msgs::Imu>("azimuth_imu", 10);
+    this->azimuthPub = this->advertise<Azimuth>("azimuth", 10);
+    this->imuPub = this->advertise<Imu>("azimuth_imu", 10);
   }
+
+#ifndef ROS2
+  template <typename T>
+  ros::Publisher advertise(const std::string& topic, const size_t queueSize)
+  {
+    return this->nh.advertise<T>(topic, queueSize);
+  }
+
+  template <typename T, typename Fn>
+  ros::Subscriber subscribe(
+    const std::string& topic, const size_t queueSize, const Fn& fn, SeptentrioProcess* self)
+  {
+    return this->nh.subscribe(topic, queueSize, fn, self);
+  }
+#else
+  template <typename T>
+  T getParam(const std::string& name, const T& defaultVal, const std::string& unit = "")
+  {
+    if (this->has_parameter(name))
+      this->undeclare_parameter(name);
+
+    try
+    {
+      const auto& result = this->declare_parameter<T>(name, defaultVal);
+      RCLCPP_INFO(this->get_logger(), "param %s = %s", name.c_str(), std::to_string(result).c_str());
+      return result;
+    }
+    catch (const std::runtime_error& e)
+    {
+      RCLCPP_WARN(this->get_logger(), "%s", e.what());
+      throw;
+    }
+  }
+
+  template <typename T>
+  typename rclcpp::Publisher<T>::SharedPtr advertise(const std::string& topic, const size_t queueSize)
+  {
+    return this->create_publisher<T>(topic, rclcpp::SystemDefaultsQoS().keep_last(queueSize));
+  }
+
+  template <typename T, typename Fn>
+  typename rclcpp::Subscription<T>::SharedPtr subscribe(
+    const std::string& topic, const size_t queueSize, const Fn& fn, SeptentrioProcess* self)
+  {
+    return this->create_subscription<T>(
+      topic, rclcpp::SystemDefaultsQoS().keep_last(queueSize), std::bind(fn, self, std::placeholders::_1));
+  }
+#endif
 
   template<typename T>
   bool fixNan(T& val) const
@@ -143,7 +307,11 @@ struct SeptentrioProcess : public cras::Nodelet
   }
 
   template<typename T>
+#ifndef ROS2
   bool fixLLACov(boost::array<T, 9>& val) const
+#else
+  bool fixLLACov(std::array<T, 9>& val) const
+#endif
   {
     // lat, lon, alt covariance is in meters even for geodetic coordinates
     bool invalid {false};
@@ -159,15 +327,15 @@ struct SeptentrioProcess : public cras::Nodelet
     return invalid;
   }
 
-  void processAimPlusStatus(const septentrio_gnss_driver::AIMPlusStatus& msg) const
+  void processAimPlusStatus(const AIMPlusStatus& msg) const
   {
-    this->updateThreadName();
+    UPDATE_THREAD_NAME
     this->aimPlusStatusPub.publish(msg);
   }
 
-  void processAtt(const septentrio_gnss_driver::AttEulerConstPtr& msg) const
+  void processAtt(const AttEulerConstPtr& msg) const
   {
-    this->updateThreadName();
+    UPDATE_THREAD_NAME
     // Synchronize atteuler and attcoveuler topics: both come almost at the same time and at low frequency, so the
     // standard message_filters approximate policy synchronizer would introduce very large delays. This is a much
     // more trivial synchronization, but it should work well for the type of data coming from Septentrio.
@@ -180,9 +348,9 @@ struct SeptentrioProcess : public cras::Nodelet
       this->lastAtt = msg;
   }
 
-  void processAttCov(const septentrio_gnss_driver::AttCovEulerConstPtr& msg) const
+  void processAttCov(const AttCovEulerConstPtr& msg) const
   {
-    this->updateThreadName();
+    UPDATE_THREAD_NAME
     if (this->lastAtt != nullptr && msg->block_header.tow == this->lastAtt->block_header.tow)
     {
       this->processHeading(this->lastAtt, msg);
@@ -192,10 +360,9 @@ struct SeptentrioProcess : public cras::Nodelet
       this->lastAttCov = msg;
   }
 
-  void processHeading(const septentrio_gnss_driver::AttEulerConstPtr& att,
-    const septentrio_gnss_driver::AttCovEulerConstPtr& cov) const
+  void processHeading(const AttEulerConstPtr& att, const AttCovEulerConstPtr& cov) const
   {
-    this->updateThreadName();
+    UPDATE_THREAD_NAME
     bool invalid {false};
     auto outAtt = *att;
     invalid |= fixNan(outAtt.heading);
@@ -225,17 +392,17 @@ struct SeptentrioProcess : public cras::Nodelet
 
     const auto conv = M_PI * M_PI / (180.0 * 180.0);
 
-    compass_msgs::Azimuth az;
+    Azimuth az;
     az.header = att->header;
     az.azimuth = outAtt.heading * M_PI / 180.0;
-    az.orientation = compass_msgs::Azimuth::ORIENTATION_ENU;
-    az.reference = compass_msgs::Azimuth::REFERENCE_GEOGRAPHIC;
-    az.unit = compass_msgs::Azimuth::UNIT_RAD;
+    az.orientation = Azimuth::ORIENTATION_ENU;
+    az.reference = Azimuth::REFERENCE_GEOGRAPHIC;
+    az.unit = Azimuth::UNIT_RAD;
     az.variance = outCov.cov_headhead * conv;
 
     this->azimuthPub.publish(az);
 
-    sensor_msgs::Imu imu;
+    Imu imu;
     imu.header = att->header;
     imu.orientation_covariance.fill(maxAngCov);
     // Imu message spec says -1 means not measured, 0 means covariance unknown
@@ -267,9 +434,9 @@ struct SeptentrioProcess : public cras::Nodelet
     this->imuPub.publish(imu);
   }
 
-  void processFix(const sensor_msgs::NavSatFix& msg) const
+  void processFix(const NavSatFix& msg) const
   {
-    this->updateThreadName();
+    UPDATE_THREAD_NAME
     auto outMsg = msg;
     bool invalid {false};
     invalid |= fixNan(outMsg.latitude);
@@ -283,7 +450,7 @@ struct SeptentrioProcess : public cras::Nodelet
     // Consumers of fix messags should check status and if it is NO_FIX, they should not use the message.
     if (invalid)
     {
-      outMsg.status.status = sensor_msgs::NavSatStatus::STATUS_NO_FIX;
+      outMsg.status.status = NavSatStatus::STATUS_NO_FIX;
       if (!this->publishInvalidFix)
         return;
     }
@@ -291,9 +458,9 @@ struct SeptentrioProcess : public cras::Nodelet
     this->fixPub.publish(outMsg);
   }
 
-  void processFixDetail(const gps_common::GPSFix& msg) const
+  void processFixDetail(const GPSFix& msg) const
   {
-    this->updateThreadName();
+    UPDATE_THREAD_NAME
     bool invalid {false};
     auto outMsg = msg;
     invalid |= fixNan(outMsg.latitude);
@@ -317,7 +484,11 @@ struct SeptentrioProcess : public cras::Nodelet
     fixLinCov(outMsg.err_track, 10.0);
     fixLinCov(outMsg.err_speed, 10.0);
     fixLinCov(outMsg.err_climb, 10.0);
+#ifndef ROS2
     fixLinCov(outMsg.err_time, ros::Time::now().toSec());
+#else
+    fixLinCov(outMsg.err_time, this->now().seconds());
+#endif
     fixAngCov(outMsg.err_pitch);
     fixAngCov(outMsg.err_roll);
     invalid |= fixAngCov(outMsg.err_dip);
@@ -332,9 +503,9 @@ struct SeptentrioProcess : public cras::Nodelet
     this->fixDetailPub.publish(outMsg);
   }
 
-  void processGpgga(const nmea_msgs::Gpgga& msg) const
+  void processGpgga(const Gpgga& msg) const
   {
-    this->updateThreadName();
+    UPDATE_THREAD_NAME
     auto outMsg = msg;
     fixNan(outMsg.lat);
     fixNan(outMsg.lon);
@@ -345,9 +516,9 @@ struct SeptentrioProcess : public cras::Nodelet
     this->gpggaPub.publish(outMsg);
   }
 
-  void processGprmc(const nmea_msgs::Gprmc& msg) const
+  void processGprmc(const Gprmc& msg) const
   {
-    this->updateThreadName();
+    UPDATE_THREAD_NAME
     auto outMsg = msg;
     fixNan(outMsg.lat);
     fixNan(outMsg.lon);
@@ -358,11 +529,15 @@ struct SeptentrioProcess : public cras::Nodelet
     this->gprmcPub.publish(outMsg);
   }
 
-  void processPosCovGeodetic(const septentrio_gnss_driver::PosCovGeodetic& msg) const
+  void processPosCovGeodetic(const PosCovGeodetic& msg) const
   {
-    this->updateThreadName();
+    UPDATE_THREAD_NAME
     auto outMsg = msg;
+#ifndef ROS2
     const auto MAX_BIAS_ERR = ros::Time::now().toSec();
+#else
+    const auto MAX_BIAS_ERR = this->now().seconds();
+#endif
     fixCov(outMsg.cov_latlat, static_cast<float>(maxPosErr * maxPosErr));
     fixCov(outMsg.cov_bb, static_cast<float>(MAX_BIAS_ERR * MAX_BIAS_ERR));
     fixCov(outMsg.cov_latlon, static_cast<float>(maxPosErr * maxPosErr));
@@ -375,9 +550,9 @@ struct SeptentrioProcess : public cras::Nodelet
     this->posCovGeodeticPub.publish(outMsg);
   }
 
-  void processPVTGeodetic(const septentrio_gnss_driver::PVTGeodetic& msg) const
+  void processPVTGeodetic(const PVTGeodetic& msg) const
   {
-    this->updateThreadName();
+    UPDATE_THREAD_NAME
     auto outMsg = msg;
     fixNan(outMsg.latitude);
     fixNan(outMsg.longitude);
@@ -393,21 +568,21 @@ struct SeptentrioProcess : public cras::Nodelet
     this->pvtGeodeticPub.publish(outMsg);
   }
 
-  void processGpst(const sensor_msgs::TimeReference& msg) const
+  void processGpst(const TimeReference& msg) const
   {
-    this->updateThreadName();
+    UPDATE_THREAD_NAME
     this->gpstPub.publish(msg);
   }
 
-  void processRFStatus(const septentrio_gnss_driver::RFStatus& msg) const
+  void processRFStatus(const RFStatus& msg) const
   {
-    this->updateThreadName();
+    UPDATE_THREAD_NAME
     this->rfStatusPub.publish(msg);
   }
 
-  void processVelCovGeodetic(const septentrio_gnss_driver::VelCovGeodetic& msg) const
+  void processVelCovGeodetic(const VelCovGeodetic& msg) const
   {
-    this->updateThreadName();
+    UPDATE_THREAD_NAME
     auto outMsg = msg;
     fixCov(outMsg.cov_vnvn, static_cast<float>(maxHorzVelErr * maxHorzVelErr));
     fixCov(outMsg.cov_veve, static_cast<float>(maxHorzVelErr * maxHorzVelErr));
@@ -423,50 +598,52 @@ struct SeptentrioProcess : public cras::Nodelet
     this->velCovGeodeticPub.publish(outMsg);
   }
 
+#ifndef ROS2
   ros::NodeHandle nh;
   ros::NodeHandle pnh;
+#endif
 
-  ros::Subscriber aimPlusStatusSub;
-  ros::Publisher aimPlusStatusPub;
+  Subscriber<AIMPlusStatus> aimPlusStatusSub;
+  Publisher<AIMPlusStatus> aimPlusStatusPub;
 
-  ros::Subscriber attEulerSub;
-  ros::Publisher attEulerPub;
+  Subscriber<AttEuler> attEulerSub;
+  Publisher<AttEuler> attEulerPub;
 
-  ros::Subscriber attCovEulerSub;
-  ros::Publisher attCovEulerPub;
+  Subscriber<AttCovEuler> attCovEulerSub;
+  Publisher<AttCovEuler> attCovEulerPub;
 
-  ros::Subscriber fixSub;
-  ros::Publisher fixPub;
+  Subscriber<NavSatFix> fixSub;
+  Publisher<NavSatFix> fixPub;
 
-  ros::Subscriber fixDetailSub;
-  ros::Publisher fixDetailPub;
+  Subscriber<GPSFix> fixDetailSub;
+  Publisher<GPSFix> fixDetailPub;
 
-  ros::Subscriber gpggaSub;
-  ros::Publisher gpggaPub;
+  Subscriber<Gpgga> gpggaSub;
+  Publisher<Gpgga> gpggaPub;
 
-  ros::Subscriber gprmcSub;
-  ros::Publisher gprmcPub;
+  Subscriber<Gprmc> gprmcSub;
+  Publisher<Gprmc> gprmcPub;
 
-  ros::Subscriber gpstSub;
-  ros::Publisher gpstPub;
+  Subscriber<TimeReference> gpstSub;
+  Publisher<TimeReference> gpstPub;
 
-  ros::Subscriber posCovGeodeticSub;
-  ros::Publisher posCovGeodeticPub;
+  Subscriber<PosCovGeodetic> posCovGeodeticSub;
+  Publisher<PosCovGeodetic> posCovGeodeticPub;
 
-  ros::Subscriber pvtGeodeticSub;
-  ros::Publisher pvtGeodeticPub;
+  Subscriber<PVTGeodetic> pvtGeodeticSub;
+  Publisher<PVTGeodetic> pvtGeodeticPub;
 
-  ros::Subscriber rfStatusSub;
-  ros::Publisher rfStatusPub;
+  Subscriber<RFStatus> rfStatusSub;
+  Publisher<RFStatus> rfStatusPub;
 
-  ros::Subscriber velCovGeodeticSub;
-  ros::Publisher velCovGeodeticPub;
+  Subscriber<VelCovGeodetic> velCovGeodeticSub;
+  Publisher<VelCovGeodetic> velCovGeodeticPub;
 
-  ros::Publisher azimuthPub;
-  ros::Publisher imuPub;
+  Publisher<Azimuth> azimuthPub;
+  Publisher<Imu> imuPub;
 
-  mutable septentrio_gnss_driver::AttEulerConstPtr lastAtt;
-  mutable septentrio_gnss_driver::AttCovEulerConstPtr lastAttCov;
+  mutable AttEulerConstPtr lastAtt;
+  mutable AttCovEulerConstPtr lastAttCov;
 
   // These maximum errors are used instead of do-not-use values or too large errors.
 
@@ -490,4 +667,8 @@ struct SeptentrioProcess : public cras::Nodelet
 
 }
 
+#ifndef ROS2
 PLUGINLIB_EXPORT_CLASS(cras::SeptentrioProcess, nodelet::Nodelet)
+#else
+RCLCPP_COMPONENTS_REGISTER_NODE(cras::SeptentrioProcess)
+#endif
