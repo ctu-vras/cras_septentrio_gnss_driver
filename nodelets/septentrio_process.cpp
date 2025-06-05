@@ -321,15 +321,23 @@ struct SeptentrioProcess :
   {
     // lat, lon, alt covariance is in meters even for geodetic coordinates
     bool invalid {false};
-    invalid |= fixCov(val[0], static_cast<T>(maxPosErr * maxPosErr), static_cast<T>(minPosErr * minPosErr));
-    invalid |= fixCov(val[1], static_cast<T>(maxPosErr * maxPosErr), static_cast<T>(minPosErr * minPosErr));
-    invalid |= fixCov(val[2], static_cast<T>(maxPosErr * maxAltErr), static_cast<T>(minPosErr * minAltErr));
-    invalid |= fixCov(val[3], static_cast<T>(maxPosErr * maxPosErr), static_cast<T>(minPosErr * minPosErr));
-    invalid |= fixCov(val[4], static_cast<T>(maxPosErr * maxPosErr), static_cast<T>(minPosErr * minPosErr));
-    invalid |= fixCov(val[5], static_cast<T>(maxPosErr * maxAltErr), static_cast<T>(minPosErr * minAltErr));
-    invalid |= fixCov(val[6], static_cast<T>(maxPosErr * maxAltErr), static_cast<T>(minPosErr * minAltErr));
-    invalid |= fixCov(val[7], static_cast<T>(maxPosErr * maxAltErr), static_cast<T>(minPosErr * minAltErr));
-    invalid |= fixCov(val[8], static_cast<T>(maxAltErr * maxAltErr), static_cast<T>(minAltErr * minAltErr));
+    invalid |= fixCov(val[0], static_cast<T>(maxPosErr * maxPosErr));
+    invalid |= fixCov(val[1], static_cast<T>(maxPosErr * maxPosErr));
+    invalid |= fixCov(val[2], static_cast<T>(maxPosErr * maxAltErr));
+    invalid |= fixCov(val[3], static_cast<T>(maxPosErr * maxPosErr));
+    invalid |= fixCov(val[4], static_cast<T>(maxPosErr * maxPosErr));
+    invalid |= fixCov(val[5], static_cast<T>(maxPosErr * maxAltErr));
+    invalid |= fixCov(val[6], static_cast<T>(maxPosErr * maxAltErr));
+    invalid |= fixCov(val[7], static_cast<T>(maxPosErr * maxAltErr));
+    invalid |= fixCov(val[8], static_cast<T>(maxAltErr * maxAltErr));
+
+    const auto maxCov = validPosErrorThreshold * validPosErrorThreshold;
+    invalid |= (val[0] > maxCov) || (val[4] > maxCov);
+
+    val[0] = std::max(val[0], static_cast<T>(minPosErr * minPosErr));
+    val[4] = std::max(val[4], static_cast<T>(minPosErr * minPosErr));
+    val[8] = std::max(val[8], static_cast<T>(minAltErr * minAltErr));
+
     return invalid;
   }
 
@@ -450,9 +458,6 @@ struct SeptentrioProcess :
     invalid |= fixNan(outMsg.altitude);
     fixLLACov(outMsg.position_covariance);
 
-    const auto maxCov = validPosErrorThreshold * validPosErrorThreshold;
-    invalid |= (outMsg.position_covariance[0] > maxCov) || (outMsg.position_covariance[4] > maxCov);
-
     // Consumers of fix messags should check status and if it is NO_FIX, they should not use the message.
     if (invalid)
     {
@@ -499,9 +504,6 @@ struct SeptentrioProcess :
     fixAngCov(outMsg.err_roll);
     invalid |= fixAngCov(outMsg.err_dip);
     invalid |= fixLLACov(outMsg.position_covariance);
-
-    const auto maxCov = validPosErrorThreshold * validPosErrorThreshold;
-    invalid |= (outMsg.position_covariance[0] > maxCov) || (outMsg.position_covariance[4] > maxCov);
 
     if (invalid && !this->publishInvalidFix)
       return;
