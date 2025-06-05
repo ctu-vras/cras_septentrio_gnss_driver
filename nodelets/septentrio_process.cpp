@@ -456,9 +456,9 @@ struct SeptentrioProcess :
     invalid |= fixNan(outMsg.latitude);
     invalid |= fixNan(outMsg.longitude);
     invalid |= fixNan(outMsg.altitude);
-    fixLLACov(outMsg.position_covariance);
+    invalid |= fixLLACov(outMsg.position_covariance);
 
-    // Consumers of fix messags should check status and if it is NO_FIX, they should not use the message.
+    // Consumers of fix messages should check status and if it is NO_FIX, they should not use the message.
     if (invalid)
     {
       outMsg.status.status = NavSatStatus::STATUS_NO_FIX;
