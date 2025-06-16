@@ -22,6 +22,8 @@ SPDX-FileCopyrightText: Czech Technical University in Prague
     <arg name="min_heading_error_deg" default="0.0" />
     <arg name="publish_invalid_fix" default="true" />
     <arg name="publish_invalid_heading" default="false" />
+    <arg name="valid_position_error_threshold" default="1.0" />
+    <arg name="valid_heading_error_threshold_deg" default="10.0" />
 
     <arg name="debug" default="false" />
     <arg name="output" default="screen" />
@@ -67,6 +69,8 @@ SPDX-FileCopyrightText: Czech Technical University in Prague
                 <param name="min_heading_error_deg" value="$(var min_heading_error_deg)" />
                 <param name="publish_invalid_fix" value="$(var publish_invalid_fix)" />
                 <param name="publish_invalid_heading" value="$(var publish_invalid_heading)" />
+		<param name="valid_position_error_threshold" value="$(var valid_position_error_threshold)" />
+                <param name="valid_heading_error_threshold_deg" value="$(var valid_heading_error_threshold_deg)" />
 
                 <extra_arg name="use_intra_process_comms" value="true" />
             </composable_node>
