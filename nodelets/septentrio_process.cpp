@@ -292,12 +292,19 @@ struct SeptentrioProcess :
   }
 
   template<typename T>
-  bool fixCov(T& val, const T& maxCov, const T& minCov = {}) const
+  bool fixCov(T& val, const T& maxCov) const
   {
     if (std::isnan(val) || val < -1000000000.0)
       val = maxCov;
-    val = std::max(minCov, val);
     return val >= maxCov;
+  }
+
+  template<typename T>
+  bool fixCov(T& val, const T& maxCov, const T& minCov) const
+  {
+    bool invalid = fixCov(val, maxCov);
+    val = std::max(minCov, val);
+    return invalid || val >= maxCov;
   }
 
   template<typename T>
