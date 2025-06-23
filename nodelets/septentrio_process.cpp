@@ -341,9 +341,16 @@ struct SeptentrioProcess :
     const auto maxCov = validPosErrorThreshold * validPosErrorThreshold;
     invalid |= (val[0] > maxCov) || (val[4] > maxCov);
 
-    val[0] = std::max(val[0], static_cast<T>(minPosErr * minPosErr));
-    val[4] = std::max(val[4], static_cast<T>(minPosErr * minPosErr));
-    val[8] = std::max(val[8], static_cast<T>(minAltErr * minAltErr));
+    // Inflate the covariance so that it is at least diag((minPosErr^2, minPosErr^2, minAltErr^2)).
+    if (minPosErr != 0.0 || minAltErr != 0.0)
+    {
+      const auto scaleN = (minPosErr * minPosErr) / val[0 * 3 + 0];
+      const auto scaleE = (minPosErr * minPosErr) / val[1 * 3 + 1];
+      const auto scaleA = (minAltErr * minAltErr) / val[2 * 3 + 2];
+      const auto scale = std::max({1.0, scaleN, scaleE, scaleA});
+      if (scale > 1.0)
+        std::transform(val.begin(), val.end(), val.begin(), [scale](double v) { return scale * v; });
+    }
 
     return invalid;
   }
@@ -384,27 +391,40 @@ struct SeptentrioProcess :
   void processHeading(const AttEulerConstPtr& att, const AttCovEulerConstPtr& cov) const
   {
     UPDATE_THREAD_NAME
-    bool invalid {false};
+    bool invalid {att->error > 0 || cov->error > 0};
     auto outAtt = *att;
     invalid |= fixNan(outAtt.heading);
+
+    auto outCov = *cov;
+    invalid |= fixAngCov(outCov.cov_headhead);
+    invalid |= (outCov.cov_headhead > validHeadingErrorThresholdDeg * validHeadingErrorThresholdDeg);
+
+    if (!this->publishInvalidHeading && invalid)
+      return;
+
     fixNan(outAtt.heading_dot);
     fixNan(outAtt.roll);
     fixNan(outAtt.roll_dot);
     fixNan(outAtt.pitch);
     fixNan(outAtt.pitch_dot);
 
-    auto outCov = *cov;
-    invalid |= fixAngCov(outCov.cov_headhead, powf(static_cast<float>(minHeadingErrDeg), 2.0f));
-    fixAngCov(outCov.cov_headroll, powf(static_cast<float>(minHeadingErrDeg), 2.0f));
-    fixAngCov(outCov.cov_headpitch, powf(static_cast<float>(minHeadingErrDeg), 2.0f));
-    fixAngCov(outCov.cov_pitchpitch, powf(static_cast<float>(minHeadingErrDeg), 2.0f));
-    fixAngCov(outCov.cov_pitchroll, powf(static_cast<float>(minHeadingErrDeg), 2.0f));
-    fixAngCov(outCov.cov_rollroll, powf(static_cast<float>(minHeadingErrDeg), 2.0f));
+    fixAngCov(outCov.cov_headroll);
+    fixAngCov(outCov.cov_headpitch);
+    fixAngCov(outCov.cov_pitchpitch);
+    fixAngCov(outCov.cov_pitchroll);
+    fixAngCov(outCov.cov_rollroll);
 
-    invalid |= (outCov.cov_headhead > validHeadingErrorThresholdDeg * validHeadingErrorThresholdDeg);
-
-    if (!this->publishInvalidHeading && invalid)
-      return;
+    // Inflate the covariance so that heading covariance is at least minHeadingErrDeg^2.
+    const auto scale = std::max(1.0f, powf(static_cast<float>(minHeadingErrDeg), 2.0f) / outCov.cov_headhead);
+    if (scale > 1.0f)
+    {
+      outCov.cov_headhead = outCov.cov_headhead * scale;
+      outCov.cov_headroll = outCov.cov_headroll * scale;
+      outCov.cov_headpitch = outCov.cov_headpitch * scale;
+      outCov.cov_pitchpitch = outCov.cov_pitchpitch * scale;
+      outCov.cov_pitchroll = outCov.cov_pitchroll * scale;
+      outCov.cov_rollroll = outCov.cov_rollroll * scale;
+    }
 
     this->attEulerPub.publish(outAtt);
     this->attCovEulerPub.publish(outCov);
@@ -423,9 +443,15 @@ struct SeptentrioProcess :
 
     this->azimuthPub.publish(az);
 
+    // TODO pitch is referenced w.r.t. the main-aux1 direction, so if attitude offset is 90 deg,
+    //      it should probably be roll instead; this should be somehow expressed, while it's currently not
     Imu imu;
     imu.header = att->header;
-    imu.orientation_covariance.fill(maxAngCov);
+    imu.orientation_covariance = {
+      outCov.cov_rollroll * conv, outCov.cov_pitchroll * conv, outCov.cov_headroll * conv,
+      outCov.cov_pitchroll * conv, outCov.cov_pitchpitch * conv, outCov.cov_headpitch * conv,
+      outCov.cov_headroll * conv, outCov.cov_headpitch * conv, outCov.cov_headhead * conv
+    };
     // Imu message spec says -1 means not measured, 0 means covariance unknown
     imu.angular_velocity_covariance.fill(0);
     imu.linear_acceleration_covariance.fill(-1);
@@ -441,16 +467,6 @@ struct SeptentrioProcess :
       std::isnan(outAtt.pitch) ? 0 : outAtt.pitch * M_PI / 180.0,
       std::isnan(outAtt.heading) ? 0 : outAtt.heading * M_PI / 180.0);
     imu.orientation = tf2::toMsg(q);
-
-    imu.orientation_covariance[0] = outCov.cov_pitchpitch * conv;
-    imu.orientation_covariance[1] = this->maxAngErr;
-    imu.orientation_covariance[2] = outCov.cov_headpitch * conv;
-    imu.orientation_covariance[3] = this->maxAngErr;
-    imu.orientation_covariance[4] = this->maxAngErr;
-    imu.orientation_covariance[5] = this->maxAngErr;
-    imu.orientation_covariance[6] = outCov.cov_headpitch * conv;
-    imu.orientation_covariance[7] = this->maxAngErr;
-    imu.orientation_covariance[8] = outCov.cov_headhead * conv;
 
     this->imuPub.publish(imu);
   }
