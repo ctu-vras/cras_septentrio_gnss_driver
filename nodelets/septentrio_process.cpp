@@ -19,6 +19,8 @@
 #include <string>
 #include <utility>
 
+#include <Eigen/Dense>
+
 #ifndef ROS2
 
 #include <compass_msgs/Azimuth.h>
@@ -341,6 +343,53 @@ struct SeptentrioProcess :
     const auto maxCov = validPosErrorThreshold * validPosErrorThreshold;
     invalid |= (val[0] > maxCov) || (val[4] > maxCov);
 
+    // New method with eigenvectors
+#if 1
+    // Inflate the covariance so that it is at least diag((minPosErr^2, minPosErr^2, minAltErr^2)).
+    if (minPosErr != 0.0 || minAltErr != 0.0)
+    {
+      Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> mat(val.data(), 3, 3);
+
+      Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eigensolver(mat);
+      if (eigensolver.info() != Eigen::Success)
+      {
+        invalid = true;
+      }
+      else
+      {
+        const auto& E = eigensolver.eigenvectors();
+        const auto& L = Eigen::Matrix3d(eigensolver.eigenvalues().asDiagonal());
+
+        if (!(E * L * E.transpose()).isApprox(mat))
+        {
+#ifndef ROS2
+          CRAS_WARN("Cov matrix decomposition is wrong");
+#else
+          RCLCPP_WARN(this->get_logger(), "Cov matrix decomposition is wrong");
+#endif
+        }
+
+        // TODO this is not really correct - the eigenvectors are sorted, so we no longer have a correlation between
+        //      horizontal and vertical errors and the eigenvectors
+        const auto scale0 = (minPosErr * minPosErr) / L(0, 0);
+        const auto scale1 = (minPosErr * minPosErr) / L(1, 1);
+        const auto scale2 = (minAltErr * minAltErr) / L(2, 2);
+        const auto scale = std::max({1.0, scale0, scale1, scale2});
+        if (scale > 1.0)
+        {
+#ifndef ROS2
+          CRAS_INFO("Scaling covariance by %.2f", scale);
+#else
+          RCLCPP_INFO(this->get_logger(), "Scaling covariance by %.2f", scale);
+#endif
+          mat = E * (scale * L) * E.transpose();
+        }
+      }
+    }
+#endif
+
+    // Older method, most probably wrong
+#if 0
     // Inflate the covariance so that it is at least diag((minPosErr^2, minPosErr^2, minAltErr^2)).
     if (minPosErr != 0.0 || minAltErr != 0.0)
     {
@@ -351,6 +400,7 @@ struct SeptentrioProcess :
       if (scale > 1.0)
         std::transform(val.begin(), val.end(), val.begin(), [scale](double v) { return scale * v; });
     }
+#endif
 
     return invalid;
   }
