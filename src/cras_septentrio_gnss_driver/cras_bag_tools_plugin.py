@@ -8,8 +8,10 @@ from gps_common.msg import GPSFix, GPSStatus
 from math import degrees, sqrt
 from sensor_msgs.msg import NavSatFix
 
-
 class ComputeFixFromPVT(DeserializedMessageFilter):
+
+    class
+
     def __init__(self, source_topic_prefix, fix_topic, fix_detail_topic=None, **kwargs):
         self.pvt_topic = rospy.names.ns_join(source_topic_prefix, "pvtgeodetic")
         self.cov_topic = rospy.names.ns_join(source_topic_prefix, "poscovgeodetic")
@@ -20,8 +22,8 @@ class ComputeFixFromPVT(DeserializedMessageFilter):
         if fix_detail_topic is None:
             self.fix_detail_topic = self.fix_topic + "_detail"
 
-        self.last_pvt = message_filters.Cache(lambda msg: None, 10)
-        self.last_cov = message_filters.Cache(lambda msg: None, 10)
+        self.last_pvt = message_filters.Cache(message_filters.SimpleFilter(), 10)
+        self.last_cov = message_filters.Cache(message_filters.SimpleFilter(), 10)
 
     def filter(self, topic, msg, stamp, header):
         result = [(topic, msg, stamp, header)]
