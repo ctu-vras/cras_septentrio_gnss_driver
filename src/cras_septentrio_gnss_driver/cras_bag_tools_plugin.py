@@ -10,8 +10,6 @@ from sensor_msgs.msg import NavSatFix
 
 class ComputeFixFromPVT(DeserializedMessageFilter):
 
-    class
-
     def __init__(self, source_topic_prefix, fix_topic, fix_detail_topic=None, **kwargs):
         self.pvt_topic = rospy.names.ns_join(source_topic_prefix, "pvtgeodetic")
         self.cov_topic = rospy.names.ns_join(source_topic_prefix, "poscovgeodetic")
