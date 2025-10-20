@@ -37,6 +37,7 @@ SPDX-FileCopyrightText: Czech Technical University in Prague
   <build_depend>tf2_geometry_msgs</build_depend>
 
   <exec_depend condition="$ROS_VERSION == 1">compass_msgs</exec_depend>
+  <exec_depend condition="$ROS_VERSION == 1">cras_bag_tools</exec_depend>
   <exec_depend condition="$ROS_VERSION == 1">cras_cpp_common</exec_depend>
   <exec_depend condition="$ROS_VERSION == 1">gps_common</exec_depend>
   <exec_depend condition="$ROS_VERSION == 1">nodelet</exec_depend>
@@ -66,6 +67,7 @@ SPDX-FileCopyrightText: Czech Technical University in Prague
 
   <export>
     <nodelet plugin="${prefix}/nodelets.xml" condition="$ROS_VERSION == 1" />
+    <cras_bag_tools condition="$ROS_VERSION == 1" filters="cras_septentrio_gnss_driver.cras_bag_tools_plugin" />
     <build_type condition="$ROS_VERSION == 1">catkin</build_type>
     <build_type condition="$ROS_VERSION == 2">ament_cmake</build_type>
   </export>

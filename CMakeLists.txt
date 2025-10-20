@@ -24,6 +24,8 @@ if(catkin_FOUND)
     tf2_geometry_msgs
   )
 
+  catkin_python_setup()
+
   catkin_package()
 
   include_directories(${catkin_INCLUDE_DIRS})
