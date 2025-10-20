@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # SPDX-FileCopyrightText: Czech Technical University in Prague
 
+import message_filters
 import rospy
 from cras_bag_tools import DeserializedMessageFilter
 from gps_common.msg import GPSFix, GPSStatus
 from math import degrees, sqrt
 from sensor_msgs.msg import NavSatFix
-from septentrio_gnss_driver.msg import PVTGeodetic, PosCovGeodetic
 
 
 class ComputeFixFromPVT(DeserializedMessageFilter):
@@ -20,27 +20,35 @@ class ComputeFixFromPVT(DeserializedMessageFilter):
         if fix_detail_topic is None:
             self.fix_detail_topic = self.fix_topic + "_detail"
 
-        self.last_pvt = None
-        self.last_cov = None
+        self.last_pvt = message_filters.Cache(lambda msg: None, 10)
+        self.last_cov = message_filters.Cache(lambda msg: None, 10)
 
     def filter(self, topic, msg, stamp, header):
         result = [(topic, msg, stamp, header)]
 
         is_pvt = topic == self.pvt_topic
         if is_pvt:
-            self.last_pvt = msg
+            self.last_pvt.add(msg)
         else:
-            self.last_cov = msg
+            self.last_cov.add(msg)
 
-        if self.last_pvt is not None and self.last_cov is not None and \
-                self.last_pvt.header.stamp == self.last_cov.header.stamp:
+        pvt = None
+        cov = None
+        dt = rospy.Duration(0.05)
+        if is_pvt:
+            msgs = self.last_cov.getInterval(msg.header.stamp - dt, msg.header.stamp + dt)
+            if len(msgs) >= 1:
+                pvt = msg
+                cov = msgs[0]
+        else:
+            msgs = self.last_pvt.getInterval(msg.header.stamp - dt, msg.header.stamp + dt)
+            if len(msgs) >= 1:
+                pvt = msgs[0]
+                cov = msg
+
+        if pvt is not None and cov is not None:
             nav_msg = NavSatFix()
             gps_msg = GPSFix()
-
-            pvt = self.last_pvt
-            cov = self.last_cov
-            assert isinstance(pvt, PVTGeodetic)
-            assert isinstance(cov, PosCovGeodetic)
 
             nav_msg.header = gps_msg.header = pvt.header
             nav_msg.latitude = gps_msg.latitude = degrees(pvt.latitude)
@@ -126,7 +134,10 @@ class ComputeFixFromPVT(DeserializedMessageFilter):
             gps_msg.err_track = 2 * (sqrt(pow(1.0 / (pvt.vn + pow(pvt.ve, 2) / pvt.vn), 2) * cov.cov_lonlon + \
                                           pow(pvt.ve / (pow(pvt.vn, 2) + pow(pvt.ve, 2)), 2) * cov.cov_latlat))
 
-            self.last_pvt = self.last_cov = None
+            self.last_pvt.cache_msgs.remove(pvt)
+            self.last_pvt.cache_times.remove(pvt.header.stamp)
+            self.last_cov.cache_msgs.remove(cov)
+            self.last_cov.cache_times.remove(cov.header.stamp)
 
             result.append((self.fix_topic, nav_msg, stamp, header))
             result.append((self.fix_detail_topic, gps_msg, stamp, header))
@@ -134,7 +145,10 @@ class ComputeFixFromPVT(DeserializedMessageFilter):
         return result
 
     def reset(self):
-        self.last_pvt = self.last_cov = None
+        del self.last_pvt.cache_times[:]
+        del self.last_pvt.cache_msgs[:]
+        del self.last_cov.cache_times[:]
+        del self.last_cov.cache_msgs[:]
         super(ComputeFixFromPVT, self).reset()
 
     def _str_params(self):
