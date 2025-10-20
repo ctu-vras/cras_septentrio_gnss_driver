@@ -10,7 +10,7 @@ from septentrio_gnss_driver.msg import PVTGeodetic, PosCovGeodetic
 
 
 class ComputeFixFromPVT(DeserializedMessageFilter):
-    def __init__(self, source_topic_prefix, fix_topic, fix_detail_topic, **kwargs):
+    def __init__(self, source_topic_prefix, fix_topic, fix_detail_topic=None, **kwargs):
         self.pvt_topic = rospy.names.ns_join(source_topic_prefix, "pvtgeodetic")
         self.cov_topic = rospy.names.ns_join(source_topic_prefix, "poscovgeodetic")
         super(ComputeFixFromPVT, self).__init__(include_topics=[self.pvt_topic, self.cov_topic], **kwargs)
