@@ -72,7 +72,7 @@ class ComputeFixFromPVT(DeserializedMessageFilter):
                     gal_in_pvt = True
                 mask_2 *= 2
             service = gps_in_pvt * 1 + glo_in_pvt * 2 + com_in_pvt * 4 + gal_in_pvt * 8
-            nav_msg.status.service = gps_msg.status.service = service
+            nav_msg.status.service = service
 
             pvt_mode = pvt.mode & 15
             if pvt_mode == 0:  # evNoPVT
