@@ -120,7 +120,7 @@ class ComputeFixFromPVT(DeserializedMessageFilter):
             gps_msg.status.orientation_source = GPSStatus.SOURCE_POINTS
             gps_msg.status.position_source = GPSStatus.SOURCE_GPS
             gps_msg.track = pvt.cog
-            gps_msg.speed = sqrt(pow(pvt.vn, 2), pow(pvt.ve, 2))
+            gps_msg.speed = sqrt(pow(pvt.vn, 2) + pow(pvt.ve, 2))
             gps_msg.climb = pvt.vu
             gps_msg.gdop = gps_msg.pdop = max(pvt.h_accuracy / 100.0, pvt.v_accuracy / 100.0)
             gps_msg.hdop = pvt.h_accuracy / 100.0
